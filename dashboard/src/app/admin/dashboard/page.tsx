@@ -35,6 +35,7 @@ export default function AdminDashboard() {
         }
       } catch (error) {
         console.error('Error verificando sesión:', error);
+        console.error('puerba');
       } finally {
         setIsLoading(false);
       }
