@@ -10,6 +10,7 @@ interface CicloFormProps {
 const CicloForm = ({ onCicloCreated }: CicloFormProps) => {
   const [tipoPlanta, setTipoPlanta] = useState('');
   const [numeroPlants, setNumeroPlants] = useState('');
+  const [etapa, setEtapa] = useState('Germinacion');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [cicloActivo, setCicloActivo] = useState(false);
@@ -64,7 +65,7 @@ const CicloForm = ({ onCicloCreated }: CicloFormProps) => {
             tipo_planta: tipoPlanta,
             numero_plantas: parseInt(numeroPlants),
             fecha_inicio: new Date().toISOString(),
-            etapa_actual: 'Germinación'
+            etapa_actual: etapa // Usar la etapa seleccionada por el usuario
           }
         ]);
 
@@ -72,6 +73,7 @@ const CicloForm = ({ onCicloCreated }: CicloFormProps) => {
 
       setTipoPlanta('');
       setNumeroPlants('');
+      setEtapa('Germinacion');
       onCicloCreated();
     } catch (error: any) {
       setError(error.message);
@@ -99,6 +101,21 @@ const CicloForm = ({ onCicloCreated }: CicloFormProps) => {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
+      {error && (
+        <div className="bg-red-50 border-l-4 border-red-400 p-4">
+          <div className="flex">
+            <div className="flex-shrink-0">
+              ⚠️
+            </div>
+            <div className="ml-3">
+              <p className="text-sm text-red-700">
+                {error}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="space-y-4">
         <label className="block text-base font-semibold text-green-700">
           Número de Plantas
@@ -128,6 +145,50 @@ const CicloForm = ({ onCicloCreated }: CicloFormProps) => {
         />
       </div>
 
+      {/* Nueva sección para seleccionar la etapa inicial */}
+      <div className="space-y-4">
+        <label className="block text-base font-semibold text-green-700">
+          Etapa Inicial
+        </label>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <EtapaSelector 
+            nombre="Germinación" 
+            valor="Germinacion"
+            descripcion="Primeras etapas desde semilla" 
+            icono="🌱" 
+            seleccionada={etapa === 'Germinacion'} 
+            onClick={() => setEtapa('Germinacion')} 
+          />
+          
+          <EtapaSelector 
+            nombre="Vegetativa" 
+            valor="Vegetativa"
+            descripcion="Crecimiento de tallos y hojas" 
+            icono="🌿" 
+            seleccionada={etapa === 'Vegetativa'} 
+            onClick={() => setEtapa('Vegetativa')} 
+          />
+          
+          <EtapaSelector 
+            nombre="Floración" 
+            valor="Floracion"
+            descripcion="Desarrollo de flores" 
+            icono="🌺" 
+            seleccionada={etapa === 'Floracion'} 
+            onClick={() => setEtapa('Floracion')} 
+          />
+          
+          <EtapaSelector 
+            nombre="Secado" 
+            valor="Secado"
+            descripcion="Proceso de secado" 
+            icono="☀️" 
+            seleccionada={etapa === 'Secado'} 
+            onClick={() => setEtapa('Secado')} 
+          />
+        </div>
+      </div>
+
       <button
         type="submit"
         disabled={loading}
@@ -150,6 +211,41 @@ const CicloForm = ({ onCicloCreated }: CicloFormProps) => {
         )}
       </button>
     </form>
+  );
+};
+
+// Componente para seleccionar etapa
+interface EtapaSelectorProps {
+  nombre: string;
+  valor: string;
+  descripcion: string;
+  icono: string;
+  seleccionada: boolean;
+  onClick: () => void;
+}
+
+const EtapaSelector = ({ nombre, valor, descripcion, icono, seleccionada, onClick }: EtapaSelectorProps) => {
+  return (
+    <div 
+      onClick={onClick}
+      className={`relative flex items-center p-4 rounded-lg border-2 cursor-pointer transition-all
+                  ${seleccionada 
+                      ? 'border-green-500 bg-green-50 shadow-md' 
+                      : 'border-gray-200 hover:border-green-300 hover:bg-green-50'}`}
+    >
+      <div className="mr-3 text-2xl">{icono}</div>
+      <div>
+        <p className="font-medium">{nombre}</p>
+        <p className="text-xs text-gray-500">{descripcion}</p>
+      </div>
+      {seleccionada && (
+        <div className="absolute top-2 right-2">
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-green-600" viewBox="0 0 20 20" fill="currentColor">
+            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+          </svg>
+        </div>
+      )}
+    </div>
   );
 };
 
