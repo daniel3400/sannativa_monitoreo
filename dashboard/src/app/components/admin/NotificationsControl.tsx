@@ -64,7 +64,7 @@ export default function NotificationsControl() {
                 const cycle = await getActiveCycle();
                 setActiveCycle(cycle);
                 
-                if (cycle && cycle.stage) {
+                if (cycle && cycle.etapa_actual) {
                     // Convertir la etapa del ciclo al formato esperado
                     const stageMapping: Record<string, keyof typeof PARAMETROS_ETAPAS> = {
                         'vegetative': 'Vegetativa',
@@ -74,13 +74,13 @@ export default function NotificationsControl() {
                         // Agregar mapeos según sea necesario
                     };
                     
-                    const mappedStage = stageMapping[cycle.stage] || 'Vegetativa';
+                    const mappedStage = stageMapping[cycle.etapa_actual] || 'Vegetativa';
                     
                     // Actualizar la etapa en la configuración y en el estado local
                     handleChange('etapaMonitoreo', mappedStage);
                     setActiveCycle(cycle);
                     
-                    console.log(`Ciclo activo cargado: ${cycle.name}, etapa: ${mappedStage}`);
+                    console.log(`Ciclo activo cargado: ${cycle.id_ciclo}, etapa: ${mappedStage}`);
                 }
             } catch (error) {
                 console.error('Error en la inicialización:', error);
