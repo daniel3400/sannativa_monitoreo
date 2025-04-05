@@ -233,10 +233,10 @@ const EtapaSelector = ({ nombre, valor, descripcion, icono, seleccionada, onClic
                       ? 'border-green-500 bg-green-50 shadow-md' 
                       : 'border-gray-200 hover:border-green-300 hover:bg-green-50'}`}
     >
-      <div className="mr-3 text-2xl">{icono}</div>
-      <div>
-        <p className="font-medium">{nombre}</p>
-        <p className="text-xs text-gray-500">{descripcion}</p>
+      <div className="mr-4 text-3xl">{icono}</div>
+      <div className="flex-grow">
+        <p className="font-semibold text-base text-gray-800">{nombre}</p>
+        <p className="text-sm text-gray-600 mt-1">{descripcion}</p>
       </div>
       {seleccionada && (
         <div className="absolute top-2 right-2">
