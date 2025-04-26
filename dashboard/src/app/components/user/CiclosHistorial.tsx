@@ -12,6 +12,7 @@ interface Ciclo {
   numero_plantas: number;
   owner_id: string;
   etapa_actual: string;
+  materia_prima_kg: number | null;
 }
 
 interface EtapaPromedio {
@@ -38,9 +39,25 @@ const CiclosHistorial = ({ ciclos, onCicloUpdated }: CiclosHistorialProps) => {
 
   const finalizarCiclo = async (cicloId: number, e: React.MouseEvent) => {
     e.stopPropagation(); // Evitar que se propague el click a la fila
+
+    // 1. Solicitar la cantidad de materia prima
+    const materiaPrimaInput = window.prompt('Ingrese la cantidad de materia prima obtenida (en kg):', '0');
+
+    // Validar la entrada
+    if (materiaPrimaInput === null) {
+      // El usuario canceló el prompt
+      return;
+    }
+
+    const materiaPrimaKg = parseFloat(materiaPrimaInput);
+    if (isNaN(materiaPrimaKg) || materiaPrimaKg < 0) {
+      alert('Por favor, ingrese un número válido y positivo para la materia prima.');
+      return;
+    }
+
     setLoading(true);
     try {
-      // 1. Finalizar la etapa actual
+      // 2. Finalizar la etapa actual
       const { data: etapaActual, error: errorEtapa } = await supabase
         .from('etapas_ciclo')
         .select('*')
@@ -48,48 +65,55 @@ const CiclosHistorial = ({ ciclos, onCicloUpdated }: CiclosHistorialProps) => {
         .is('fecha_fin', null)
         .single();
 
-      if (errorEtapa) throw errorEtapa;
+      // Manejo de error si no se encuentra etapa actual o hay error
+      if (errorEtapa && errorEtapa.code !== 'PGRST116') { // PGRST116: No rows found
+        throw errorEtapa;
+      }
 
       if (etapaActual) {
         // Calcular promedios de la última etapa
         const { data: promedios, error: errorPromedios } = await supabase
           .rpc('calcular_promedios_etapa', {
-            etapa_id: etapaActual.id
+            etapa_id_param: etapaActual.id
           });
 
         if (errorPromedios) throw errorPromedios;
 
-        // Actualizar la etapa actual con los promedios
-        const { error: errorUpdate } = await supabase
+        // Actualizar la etapa actual con los promedios y fecha fin
+        const { error: errorUpdateEtapa } = await supabase
           .from('etapas_ciclo')
           .update({
             fecha_fin: new Date().toISOString(),
-            temp_promedio: promedios?.temp_promedio || 0,
-            hum_promedio: promedios?.hum_promedio || 0,
-            hum_suelo_promedio: promedios?.hum_suelo_promedio || 0
+            temp_promedio: promedios?.temp_promedio ?? null,
+            hum_promedio: promedios?.hum_promedio ?? null,
+            hum_suelo_promedio: promedios?.hum_suelo_promedio ?? null
           })
           .eq('id', etapaActual.id);
 
-        if (errorUpdate) throw errorUpdate;
+        if (errorUpdateEtapa) throw errorUpdateEtapa;
       }
 
-      // 2. Finalizar el ciclo
+      // 3. Finalizar el ciclo incluyendo la materia prima
       const { error: errorCiclo } = await supabase
         .from('ciclos_cultivo')
         .update({
-          fecha_fin: new Date().toISOString()
+          fecha_fin: new Date().toISOString(),
+          materia_prima_kg: materiaPrimaKg
         })
         .eq('id_ciclo', cicloId);
 
       if (errorCiclo) throw errorCiclo;
 
+      // 4. Actualizar la UI
       onCicloUpdated();
       if (cicloSeleccionado === cicloId) {
         await cargarPromediosEtapas(cicloId);
       }
-    } catch (error) {
+      alert(`Ciclo finalizado con ${materiaPrimaKg} kg de materia prima.`);
+
+    } catch (error: any) {
       console.error('Error al finalizar ciclo:', error);
-      alert('Error al finalizar el ciclo');
+      alert(`Error al finalizar el ciclo: ${error.message || 'Error desconocido'}`);
     } finally {
       setLoading(false);
     }
@@ -148,6 +172,9 @@ const CiclosHistorial = ({ ciclos, onCicloUpdated }: CiclosHistorialProps) => {
                   Etapa Actual
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-green-700 uppercase tracking-wider">
+                  Materia Prima (kg)
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-green-700 uppercase tracking-wider">
                   Acciones
                 </th>
               </tr>
@@ -157,7 +184,7 @@ const CiclosHistorial = ({ ciclos, onCicloUpdated }: CiclosHistorialProps) => {
                 <tr 
                   key={ciclo.id_ciclo}
                   onClick={() => cargarPromediosEtapas(ciclo.id_ciclo)}
-                  className="hover:bg-green-50 cursor-pointer transition-colors"
+                  className={`hover:bg-green-50 cursor-pointer transition-colors ${cicloSeleccionado === ciclo.id_ciclo ? 'bg-green-100' : ''}`}
                 >
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     {new Date(ciclo.fecha_inicio).toLocaleDateString('es-ES', {
@@ -186,7 +213,7 @@ const CiclosHistorial = ({ ciclos, onCicloUpdated }: CiclosHistorialProps) => {
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
                       ciclo.fecha_fin === null
-                        ? 'bg-green-100 text-green-800'
+                        ? 'bg-green-100 text-green-800 animate-pulse'
                         : 'bg-gray-100 text-gray-800'
                     }`}>
                       {ciclo.fecha_fin === null ? 'Activo' : 'Finalizado'}
@@ -197,26 +224,56 @@ const CiclosHistorial = ({ ciclos, onCicloUpdated }: CiclosHistorialProps) => {
                       {ciclo.etapa_actual}
                     </span>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap space-x-2">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {ciclo.fecha_fin ? (ciclo.materia_prima_kg !== null ? `${ciclo.materia_prima_kg} kg` : 'N/A') : '-'}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap space-x-2 text-sm">
                     {!ciclo.fecha_fin && (
                       <>
                         <button
                           onClick={(e) => handleGestionEtapa(e, ciclo.id_ciclo)}
-                          className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700
-                                   text-sm inline-flex items-center"
+                          className="px-3 py-1.5 bg-blue-600 text-white rounded-md hover:bg-blue-700
+                                   inline-flex items-center shadow-sm transition-colors"
+                          title="Gestionar etapas del ciclo"
                         >
-                          Gestionar Etapa
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 16v-2m0-10v2m0 6v2M6 12H4m16 0h-2m-10 0h2m6 0h2M9 18l-3-3 3-3M15 6l3 3-3 3" />
+                          </svg>
+                          Etapas
                         </button>
                         <button
                           onClick={(e) => finalizarCiclo(ciclo.id_ciclo, e)}
                           disabled={loading}
-                          className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700
-                                   disabled:bg-red-300 text-sm inline-flex items-center"
+                          className="px-3 py-1.5 bg-red-600 text-white rounded-md hover:bg-red-700
+                                   disabled:bg-red-300 inline-flex items-center shadow-sm transition-colors"
+                          title="Finalizar este ciclo de cultivo"
                         >
-                          Finalizar Ciclo
+                          {loading ? (
+                            <svg className="animate-spin h-4 w-4 mr-1" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                          ) : (
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                            </svg>
+                          )}
+                          Finalizar
                         </button>
                       </>
                     )}
+                    <button
+                      onClick={() => cargarPromediosEtapas(ciclo.id_ciclo)}
+                      className="px-3 py-1.5 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300
+                               inline-flex items-center shadow-sm transition-colors"
+                      title="Ver detalles y promedios del ciclo"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                      </svg>
+                      Detalles
+                    </button>
                   </td>
                 </tr>
               ))}
