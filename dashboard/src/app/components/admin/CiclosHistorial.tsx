@@ -11,6 +11,7 @@ interface Ciclo {
   numero_plantas: number;
   owner_id: string;
   etapa_actual: string;
+  materia_prima_kg: number | null; // <--- AÑADIR ESTA LÍNEA
 }
 
 interface EtapaPromedio {
@@ -83,6 +84,21 @@ const CiclosHistorial = () => {
 
   const finalizarCiclo = async (cicloId: number, e: React.MouseEvent) => {
     e.stopPropagation(); // Evitar que se propague el click a la fila
+    
+    // --- INICIO: Lógica para solicitar materia prima ---
+    const materiaPrimaInput = window.prompt('Ingrese la cantidad de materia prima obtenida (en kg):', '0');
+
+    if (materiaPrimaInput === null) { // El usuario canceló
+      return;
+    }
+
+    const materiaPrimaKg = parseFloat(materiaPrimaInput);
+    if (isNaN(materiaPrimaKg) || materiaPrimaKg < 0) {
+      alert('Por favor, ingrese un número válido y positivo para la materia prima.');
+      return;
+    }
+    // --- FIN: Lógica para solicitar materia prima ---
+
     setLoading(true);
     try {
       // 1. Finalizar la etapa actual
@@ -125,7 +141,8 @@ const CiclosHistorial = () => {
       const { error: errorCiclo } = await supabase
         .from('ciclos_cultivo')
         .update({
-          fecha_fin: new Date().toISOString()
+          fecha_fin: new Date().toISOString(),
+          materia_prima_kg: materiaPrimaKg // <--- AÑADIR ESTO AL UPDATE
         })
         .eq('id_ciclo', cicloId);
 
@@ -225,6 +242,9 @@ const CiclosHistorial = () => {
               <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Etapa Actual
               </th>
+              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"> {/* NUEVA COLUMNA */}
+                Materia Prima (kg)
+              </th>
               <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Estado
               </th>
@@ -262,6 +282,9 @@ const CiclosHistorial = () => {
                     {ciclo.etapa_actual}
                   </span>
                 </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900"> {/* NUEVA CELDA */}
+                  {ciclo.fecha_fin && ciclo.materia_prima_kg !== null ? ciclo.materia_prima_kg.toFixed(2) : '-'}
+                </td>
                 <td className="px-6 py-4 whitespace-nowrap">
                   <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
                     ${!ciclo.fecha_fin ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
@@ -284,7 +307,7 @@ const CiclosHistorial = () => {
             ))}
             {ciclos.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-6 py-4 text-center text-sm text-gray-500">
+                <td colSpan={8} className="px-6 py-4 text-center text-sm text-gray-500"> {/* AJUSTAR COLSPAN */}
                   No se encontraron ciclos de cultivo
                 </td>
               </tr>
@@ -298,7 +321,7 @@ const CiclosHistorial = () => {
         <div className="mt-8 bg-white rounded-lg shadow-lg p-6">
           <div className="flex justify-between items-center mb-6">
             <h3 className="text-xl font-semibold text-gray-800">
-              Promedios por Etapa - Ciclo #{cicloSeleccionado}
+              Detalles del Ciclo #{cicloSeleccionado}
             </h3>
             <button
               onClick={() => setCicloSeleccionado(null)}
@@ -307,6 +330,31 @@ const CiclosHistorial = () => {
               Cerrar
             </button>
           </div>
+          
+          {/* Mostrar Materia Prima si el ciclo está finalizado */}
+          {(() => {
+            const cicloActual = ciclos.find(c => c.id_ciclo === cicloSeleccionado);
+            if (cicloActual && cicloActual.fecha_fin && cicloActual.materia_prima_kg !== null) {
+              return (
+                <div className="mb-6 bg-green-50 p-4 rounded-xl shadow">
+                  <h4 className="text-lg font-bold text-gray-900 mb-2">
+                    Resultado Final del Ciclo
+                  </h4>
+                  <div className="bg-white p-4 rounded-lg shadow-md">
+                    <p className="text-gray-800 font-semibold mb-2">Materia Prima Obtenida</p>
+                    <p className="text-3xl font-bold text-gray-900">
+                      {cicloActual.materia_prima_kg.toFixed(2)} kg
+                    </p>
+                  </div>
+                </div>
+              );
+            }
+            return null;
+          })()}
+
+          <h4 className="text-lg font-semibold text-gray-700 mb-4">
+            Promedios por Etapa
+          </h4>
           <div className="space-y-6">
             {etapasCiclo.map((etapa) => (
               <div key={etapa.id} className="bg-gray-50 p-4 rounded-xl">
