@@ -45,7 +45,7 @@ const CiclosHistorial = ({ ciclos, onCicloUpdated }: CiclosHistorialProps) => {
 
     // Validar la entrada
     if (materiaPrimaInput === null) {
-      // El usuario canceló el prompt
+     
       return;
     }
 
@@ -74,7 +74,7 @@ const CiclosHistorial = ({ ciclos, onCicloUpdated }: CiclosHistorialProps) => {
         // Calcular promedios de la última etapa
         const { data: promedios, error: errorPromedios } = await supabase
           .rpc('calcular_promedios_etapa', {
-            etapa_id_param: etapaActual.id
+            etapa_id: etapaActual.id
           });
 
         if (errorPromedios) throw errorPromedios;
@@ -84,9 +84,10 @@ const CiclosHistorial = ({ ciclos, onCicloUpdated }: CiclosHistorialProps) => {
           .from('etapas_ciclo')
           .update({
             fecha_fin: new Date().toISOString(),
-            temp_promedio: promedios?.temp_promedio ?? null,
-            hum_promedio: promedios?.hum_promedio ?? null,
-            hum_suelo_promedio: promedios?.hum_suelo_promedio ?? null
+            // Acceder al primer elemento del array devuelto por RPC
+            temp_promedio: promedios?.[0]?.temp_promedio ?? null,
+            hum_promedio: promedios?.[0]?.hum_promedio ?? null,
+            hum_suelo_promedio: promedios?.[0]?.hum_suelo_promedio ?? null
           })
           .eq('id', etapaActual.id);
 
@@ -112,8 +113,22 @@ const CiclosHistorial = ({ ciclos, onCicloUpdated }: CiclosHistorialProps) => {
       alert(`Ciclo finalizado con ${materiaPrimaKg} kg de materia prima.`);
 
     } catch (error: any) {
-      console.error('Error al finalizar ciclo:', error);
-      alert(`Error al finalizar el ciclo: ${error.message || 'Error desconocido'}`);
+      // Log más detallado para depuración
+      console.error('Error detallado al finalizar ciclo (objeto completo):', error);
+      console.error('Error detallado al finalizar ciclo (stringified):', JSON.stringify(error, null, 2));
+
+      // Intenta obtener un mensaje más específico
+      let errorMessage = 'Error desconocido';
+      if (error && typeof error === 'object') {
+        errorMessage = error.message || // Mensaje estándar
+                       error.details || // Detalles de Supabase
+                       error.hint ||    // Pista de Supabase
+                       JSON.stringify(error); // Como último recurso, el objeto completo
+      } else if (error) {
+        errorMessage = String(error); // Si no es un objeto
+      }
+
+      alert(`Error al finalizar el ciclo: ${errorMessage}`);
     } finally {
       setLoading(false);
     }
