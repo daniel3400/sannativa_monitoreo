@@ -111,7 +111,7 @@ const MonitoringDashboard = () => {
             .from(tableName)
             .select('*')
             .order('created_at', { ascending: false })
-            .limit(100);
+            .limit(300);
 
           if (graphData && graphData.length > 0) {
             console.log(`Datos más recientes de ${tableName}:`, {
